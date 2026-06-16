@@ -142,7 +142,7 @@ def parse_xcresulttool_results(data: Dict[str, Any]) -> tuple:
 
             status = node.get("result", "unknown")
             duration = parse_duration(node)
-            default_srs_id = f"SRS-{suite_name.replace(' ', '')}-{test_id_counter[suite_name]}"
+            default_srs_id = ""
             metadata = extract_metadata_from_node(node)
             srs_id = parse_srs_id_from_metadata(metadata, default_srs_id)
 

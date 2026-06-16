@@ -486,7 +486,7 @@ def parse_xcresulttool_results(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Di
 
             status = normalize_status(node.get("result", "unknown"))
             duration = parse_duration(node)
-            default_srs_id = f"SRS-{suite_name.replace(' ', '')}-{test_id_counter[suite_name]}"
+            default_srs_id = ""
             metadata = extract_metadata_from_node(node)
             srs_id = parse_srs_id_from_metadata(metadata, default_srs_id)
             requirements = normalize_requirements(metadata.get("requirements"))
@@ -892,7 +892,7 @@ def generate_logs_page(categories: Optional[Dict[str, List[Dict[str, Any]]]], ou
                             <span class=\"text-xs text-slate-400 font-mono\">{format_duration(e['duration'])}</span>
                         </div>
                     </div>
-                    <div class=\"mt-2 text-xs text-slate-600\"><span class=\"font-semibold text-slate-500\">SRS ID:</span> <code class=\"bg-gray-100 px-2 py-0.5 rounded\">{_html_escape(e['srs_id'])}</code></div>
+                    {f'<div class=\\"mt-2 text-xs text-slate-600\\"><span class=\\"font-semibold text-slate-500\\">SRS ID:</span> <code class=\\"bg-gray-100 px-2 py-0.5 rounded\\">{_html_escape(e["srs_id"])}</code></div>' if e.get('srs_id') else ''}
                     {error_html}
                 </div>"""
 
@@ -1289,9 +1289,7 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                     <span class="text-xs text-gray-500 font-mono">{format_duration(test['duration'])}</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-2">
-                    <div class="text-gray-700">
-                        <span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test['srs_id']}</code>
-                    </div>
+                    {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test["srs_id"]}</code></div>' if test.get('srs_id') else ''}
                     <div class="text-gray-700">
                         <span class="font-semibold text-gray-600">Test Function:</span> {test['name']}
                     </div>
@@ -1346,11 +1344,11 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                         <span class=\"text-xs text-gray-500 font-mono\">{format_duration(test['duration'])}</span>
                     </div>
                     <div class=\"grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-2\">
-                        <div class=\"text-gray-700\"><span class=\"font-semibold text-gray-600\">SRS ID:</span> <code class=\"bg-gray-100 px-2 py-1 rounded\">{test['srs_id']}</code></div>
+                        {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test.get("srs_id", "")}</code></div>' if test.get("srs_id") else ''}
                         <div class=\"text-gray-700\"><span class=\"font-semibold text-gray-600\">Test Function:</span> {test['name']}</div>
                         <div><span class=\"inline-block px-3 py-1 rounded-full text-xs font-semibold {status_badge}\">{test_status.upper()}</span></div>
                     </div>
-                    <div class=\"text-sm text-slate-700\">{test.get('description','')}</div>
+                    {f'<div class="text-sm text-slate-700 mt-2">{test["description"]}</div>' if test.get("description") else ''}
                 </div>
             """
 
@@ -1495,7 +1493,7 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                                     <span class=\"text-xs text-slate-400 font-mono\">{format_duration(e['duration'])}</span>
                                 </div>
                             </div>
-                            <div class=\"mt-2 text-xs text-slate-600\"><span class=\"font-semibold text-slate-500\">SRS ID:</span> <code class=\"bg-gray-100 px-2 py-0.5 rounded\">{_html_escape(e['srs_id'])}</code></div>
+                            {f'<div class=\\"mt-2 text-xs text-slate-600\\"><span class=\\"font-semibold text-slate-500\\">SRS ID:</span> <code class=\\"bg-gray-100 px-2 py-0.5 rounded\\">{_html_escape(e["srs_id"])}</code></div>' if e.get('srs_id') else ''}
                             {l_error_html}
                         </div>"""
 
