@@ -28,6 +28,24 @@ from xchtml.core import (
 from xchtml.parsers import parse_xcresulttool_results, get_device_info_from_db
 
 
+def _as_dict_metrics_and_categories(metrics, categories):
+    """Normalizes parser output into plain dictionaries for report generation."""
+    if hasattr(metrics, "to_dict"):
+        metrics = metrics.to_dict()
+
+    normalized_categories = {}
+    for suite_name, tests in (categories or {}).items():
+        normalized_tests = []
+        for test in tests:
+            if hasattr(test, "to_dict"):
+                normalized_tests.append(test.to_dict())
+            elif isinstance(test, dict):
+                normalized_tests.append(test)
+        normalized_categories[suite_name] = normalized_tests
+
+    return metrics, normalized_categories
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Builds the top-level argument parser with subcommands."""
     parser = argparse.ArgumentParser(
@@ -91,6 +109,7 @@ def _cmd_generate(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     metrics, categories = parse_xcresulttool_results(xcdata)
+    metrics, categories = _as_dict_metrics_and_categories(metrics, categories)
 
     db_path = os.path.join(bundle_path, "database.sqlite3")
     if os.path.exists(db_path):
