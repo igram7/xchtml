@@ -5,9 +5,14 @@ import sqlite3
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Dict, List, Any, Tuple
+
+from .models import TestMetrics, TestCase, DeviceInfo, CoverageSummary, CoverageFile
+from .parsers import parse_xcresulttool_results, get_device_info_from_db, extract_metadata_from_node, parse_srs_id_from_metadata
+from .utils import html_escape, format_duration, normalize_requirements, slug_from_name
 
 
-def load_database_test_results(db_path):
+def load_database_test_results(db_path: str) -> Optional[List]:
     """Loads test results from the SQLite database in an xcresult bundle."""
     if not os.path.exists(db_path):
         print(f"Error: {db_path} not found.")
@@ -47,7 +52,7 @@ def load_database_test_results(db_path):
         return None
 
 
-def load_attachment_metadata(bundle_path, payload_ref):
+def load_attachment_metadata(bundle_path: str, payload_ref: Optional[str]) -> Dict[str, Any]:
     """Loads JSON metadata from an xcresult attachment payload ID."""
     if not payload_ref or not bundle_path or not os.path.isdir(bundle_path):
         return {}
@@ -206,7 +211,7 @@ def extract_metadata_from_node(node):
     return {}
 
 
-def find_latest_xcresult_in_derived_data(derived_data_root=None):
+def find_latest_xcresult_in_derived_data(derived_data_root: Optional[str] = None) -> Optional[str]:
     """Finds the most recently modified .xcresult bundle in Xcode DerivedData."""
     root = Path(derived_data_root or "~/Library/Developer/Xcode/DerivedData").expanduser()
     if not root.exists() or not root.is_dir():
@@ -242,7 +247,7 @@ def find_latest_xcresult_in_derived_data(derived_data_root=None):
     return str(latest_path) if latest_path else None
 
 
-def resolve_manual_xcresult(xcresult_input):
+def resolve_manual_xcresult(xcresult_input: str) -> Optional[str]:
     """Resolves a user-provided xcresult path or bundle name."""
     if not xcresult_input:
         return None
@@ -276,7 +281,7 @@ def resolve_manual_xcresult(xcresult_input):
 
 
 
-def load_xcresult_test_results(bundle_path):
+def load_xcresult_test_results(bundle_path: str) -> Optional[Dict[str, Any]]:
     if not os.path.exists(bundle_path):
         print(f"Error: {bundle_path} not found.")
         return None
@@ -309,12 +314,7 @@ def load_xcresult_test_results(bundle_path):
         return None
 
 
-def load_test_summary(bundle_path):
-    """Reads the xcresult test-results summary once and returns it as a dict.
-
-    The summary feeds both the wall-clock duration and the Top Insights, so it
-    is fetched a single time and shared to avoid invoking xcresulttool twice.
-    """
+def load_test_summary(bundle_path: str) -> Optional[Dict[str, Any]]:
     try:
         result = subprocess.run(
             [
@@ -341,7 +341,7 @@ def load_test_summary(bundle_path):
         return None
 
 
-def get_wall_clock_duration(summary):
+def get_wall_clock_duration(summary: Optional[Dict[str, Any]]) -> Optional[float]:
     """Returns the wall-clock run duration (finishTime - startTime) in seconds.
 
     This matches Xcode's "Ran for ..." figure, which includes app launches,
@@ -357,7 +357,7 @@ def get_wall_clock_duration(summary):
     return None
 
 
-def get_top_insights(summary):
+def get_top_insights(summary: Optional[Dict[str, Any]]) -> List[Dict[str, str]]:
     """Returns the list of Top Insights from an xcresult summary dict.
 
     Mirrors the "Top Insights" section Xcode shows when opening an xcresult.
@@ -371,7 +371,7 @@ def get_top_insights(summary):
     return []
 
 
-def load_coverage_data(bundle_path):
+def load_coverage_data(bundle_path: str) -> Optional[Dict[str, Any]]:
     """Runs xcrun xccov to extract coverage information as JSON."""
     try:
         result = subprocess.run(
@@ -432,7 +432,7 @@ def get_simulator_info_from_db(db_path):
         return {}
 
 
-def parse_xcresulttool_results(data):
+def parse_xcresulttool_results(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, List[Dict[str, Any]]]]:
     metrics = {"passed": 0, "failed": 0, "skipped": 0, "total": 0, "duration": 0}
     categories = {}
     test_id_counter = {}
@@ -542,7 +542,7 @@ def parse_xcresulttool_results(data):
     return metrics, categories
 
 
-def enrich_categories_with_database_metadata(categories, db_results, bundle_path=None):
+def enrich_categories_with_database_metadata(categories: Dict[str, List[Dict[str, Any]]], db_results: Optional[List], bundle_path: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
     if not categories or not db_results:
         return categories
 
@@ -577,23 +577,7 @@ def enrich_categories_with_database_metadata(categories, db_results, bundle_path
     return categories
 
 
-def format_duration(seconds):
-    """Format seconds into a human-readable 'Xm Ys' string."""
-    try:
-        total = float(seconds)
-    except (TypeError, ValueError):
-        return "0s"
-    if total < 0:
-        total = 0
-    mins = int(total // 60)
-    secs = total % 60
-    if mins > 0:
-        return f"{mins}m {secs:.1f}s"
-    else:
-        return f"{secs:.1f}s"
-
-
-def collect_problem_entries(categories):
+def collect_problem_entries(categories: Optional[Dict[str, List[Dict[str, Any]]]]) -> List[Dict[str, Any]]:
     """Builds a flat list of tests that failed, skipped, or logged an error."""
     entries = []
     for category_name, test_cases in (categories or {}).items():
@@ -614,7 +598,7 @@ def collect_problem_entries(categories):
     return entries
 
 
-def flatten_coverage_files(cov):
+def flatten_coverage_files(cov: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Flattens coverage targets into one sortable file list."""
     files = []
     if not isinstance(cov, dict):
@@ -635,7 +619,7 @@ def flatten_coverage_files(cov):
     return files
 
 
-def _coverage_bar_colors(percent):
+def _coverage_bar_colors(percent: float) -> Tuple[str, str]:
     """Returns (bar_color, text_color) for a given coverage percentage."""
     if percent >= 75:
         return "#10B981", "text-green-600"
@@ -644,7 +628,7 @@ def _coverage_bar_colors(percent):
     return "#EF4444", "text-red-600"
 
 
-def generate_coverage_page(coverage, output_dir, overview_filename="report.html", filename="coverage.html"):
+def generate_coverage_page(coverage: Optional[Dict[str, Any]], output_dir: str, overview_filename: str = "report.html", filename: str = "coverage.html") -> Optional[str]:
     """Generates a dedicated full code-coverage page listing every file,
     grouped by target, each with a horizontal progress bar (like Xcode)."""
     if not isinstance(coverage, dict):
@@ -850,18 +834,7 @@ def generate_coverage_page(coverage, output_dir, overview_filename="report.html"
     return filename
 
 
-def _html_escape(text):
-    """Minimal HTML escaping for log/error text."""
-    return (
-        str(text)
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-    )
-
-
-def generate_logs_page(categories, output_dir, overview_filename="report.html", filename="logs.html"):
+def generate_logs_page(categories: Optional[Dict[str, List[Dict[str, Any]]]], output_dir: str, overview_filename: str = "report.html", filename: str = "logs.html") -> Tuple[Optional[str], int]:
     """Generates a dedicated logs page listing every test that produced an error,
     along with its key details (category, SRS ID, status, duration, error text)."""
     if not categories:
@@ -1046,7 +1019,7 @@ def generate_logs_page(categories, output_dir, overview_filename="report.html", 
     return filename, len(log_entries)
 
 
-def generate_html_report(metrics, categories, output_filename="report.html", coverage=None, device_info=None, output_dir=None):
+def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dict[str, Any]]], output_filename: str = "report.html", coverage: Optional[Dict[str, Any]] = None, device_info: Optional[Dict[str, str]] = None, output_dir: Optional[str] = None) -> None:
     """Generates a beautifully styled, customizable HTML report with charts."""
 
     # Prepare output directories

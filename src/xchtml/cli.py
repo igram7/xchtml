@@ -10,25 +10,25 @@ Usage examples:
 import argparse
 import os
 import sys
+from typing import Optional
 
 from xchtml import __version__
 from xchtml.core import (
     find_latest_xcresult_in_derived_data,
     resolve_manual_xcresult,
     load_xcresult_test_results,
-    parse_xcresulttool_results,
     load_database_test_results,
     enrich_categories_with_database_metadata,
     load_coverage_data,
-    get_simulator_info_from_db,
     load_test_summary,
     get_wall_clock_duration,
     get_top_insights,
     generate_html_report,
 )
+from xchtml.parsers import parse_xcresulttool_results, get_device_info_from_db
 
 
-def _build_parser():
+def _build_parser() -> argparse.ArgumentParser:
     """Builds the top-level argument parser with subcommands."""
     parser = argparse.ArgumentParser(
         prog="xchtml",
@@ -76,7 +76,7 @@ def _build_parser():
     return parser
 
 
-def _cmd_generate(args):
+def _cmd_generate(args: argparse.Namespace) -> None:
     """Handles the 'generate' subcommand."""
 
     # Resolve the xcresult bundle path.
@@ -130,7 +130,7 @@ def _cmd_generate(args):
 
     # Extract coverage and device info when available
     coverage = load_coverage_data(bundle_path)
-    device_info = get_simulator_info_from_db(db_path) if os.path.exists(db_path) else {}
+    device_info = get_device_info_from_db(db_path).to_dict() if os.path.exists(db_path) else {}
 
     # Read the test-results summary once; it feeds both the wall-clock duration
     # and the Top Insights section.
@@ -159,7 +159,7 @@ def _cmd_generate(args):
           f"{metrics['skipped']} skipped out of {metrics['total']} tests")
 
 
-def main():
+def main() -> None:
     """Entry point for the xchtml CLI."""
     parser = _build_parser()
     args = parser.parse_args()
