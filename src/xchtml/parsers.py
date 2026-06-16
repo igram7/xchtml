@@ -148,8 +148,10 @@ def parse_xcresulttool_results(data: Dict[str, Any]) -> tuple:
 
             from .utils import normalize_requirements, normalize_status
             requirements = normalize_requirements(metadata.get("requirements"))
-            description = metadata.get("description", "") if isinstance(metadata, dict) else ""
-            cat_desc = metadata.get("category_description", "") if isinstance(metadata, dict) else ""
+            raw_description = metadata.get("description") if isinstance(metadata, dict) else ""
+            description = raw_description.strip() if isinstance(raw_description, str) else ""
+            raw_cat_desc = metadata.get("category_description") if isinstance(metadata, dict) else ""
+            cat_desc = raw_cat_desc.strip() if isinstance(raw_cat_desc, str) else ""
             test_id_counter[suite_name] += 1
 
             # Extract failure messages from child nodes

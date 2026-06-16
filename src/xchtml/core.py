@@ -490,8 +490,10 @@ def parse_xcresulttool_results(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Di
             metadata = extract_metadata_from_node(node)
             srs_id = parse_srs_id_from_metadata(metadata, default_srs_id)
             requirements = normalize_requirements(metadata.get("requirements"))
-            description = metadata.get("description", "") if isinstance(metadata, dict) else ""
-            cat_desc = metadata.get("category_description", "") if isinstance(metadata, dict) else ""
+            raw_description = metadata.get("description") if isinstance(metadata, dict) else ""
+            description = raw_description.strip() if isinstance(raw_description, str) else ""
+            raw_cat_desc = metadata.get("category_description") if isinstance(metadata, dict) else ""
+            cat_desc = raw_cat_desc.strip() if isinstance(raw_cat_desc, str) else ""
             test_id_counter[suite_name] += 1
 
             # Failure messages are nested child nodes of type "Failure Message";
@@ -559,8 +561,10 @@ def enrich_categories_with_database_metadata(categories: Dict[str, List[Dict[str
 
         srs_id = parse_srs_id_from_metadata(metadata, None)
         requirements = normalize_requirements(metadata.get('requirements'))
-        description = metadata.get('description', "") if isinstance(metadata, dict) else ""
-        cat_desc = metadata.get('category_description', "") if isinstance(metadata, dict) else ""
+        raw_description = metadata.get('description') if isinstance(metadata, dict) else ""
+        description = raw_description.strip() if isinstance(raw_description, str) else ""
+        raw_cat_desc = metadata.get('category_description') if isinstance(metadata, dict) else ""
+        cat_desc = raw_cat_desc.strip() if isinstance(raw_cat_desc, str) else ""
 
         for test in categories[suite_name]:
             if test.get('name') == test_name:
@@ -877,6 +881,13 @@ def generate_logs_page(categories: Optional[Dict[str, List[Dict[str, Any]]]], ou
                     <div class=\"mt-3 p-3 bg-slate-900 text-slate-100 rounded-lg text-xs font-mono whitespace-pre-wrap break-words overflow-x-auto\">{_html_escape(e['error'])}</div>"""
 
         searchable = f"{e['name']} {e['category']} {e['srs_id']} {e['error']}".lower().replace('"', '')
+        srs_value = str(e.get('srs_id') or '').strip()
+        if srs_value.upper() in ('SRS_ID', 'SRS-ID', 'SRSID'):
+            srs_value = ''
+        srs_html = ""
+        if srs_value:
+            srs_html = f'<div class="mt-2 text-xs text-slate-600"><span class="font-semibold text-slate-500">SRS ID:</span> <code class="bg-gray-100 px-2 py-0.5 rounded">{_html_escape(srs_value)}</code></div>'
+
         rows_html += f"""
                 <div class=\"log-entry border-l-4 {accent} bg-white rounded-r-xl shadow-sm border border-gray-200 p-4\" data-status=\"{status}\" data-category=\"{e['category'].lower()}\" data-search=\"{searchable}\">
                     <div class=\"flex flex-wrap items-start justify-between gap-3\">
@@ -892,7 +903,7 @@ def generate_logs_page(categories: Optional[Dict[str, List[Dict[str, Any]]]], ou
                             <span class=\"text-xs text-slate-400 font-mono\">{format_duration(e['duration'])}</span>
                         </div>
                     </div>
-                    {f'<div class=\\"mt-2 text-xs text-slate-600\\"><span class=\\"font-semibold text-slate-500\\">SRS ID:</span> <code class=\\"bg-gray-100 px-2 py-0.5 rounded\\">{_html_escape(e["srs_id"])}</code></div>' if e.get('srs_id') else ''}
+                    {srs_html}
                     {error_html}
                 </div>"""
 
@@ -1251,15 +1262,20 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                 status_icon = "⊘"
                 status_badge = "text-yellow-700 bg-yellow-100"
 
+            description_text = str(test.get("description") or "").strip()
+            srs_value = str(test.get('srs_id') or '').strip()
+            if srs_value.upper() in ('SRS_ID', 'SRS-ID', 'SRSID'):
+                srs_value = ''
+
             metadata_snippet = ""
-            if test.get("description") or test.get("requirements"):
+            if description_text or test.get("requirements"):
                 metadata_html_parts = []
-                if test.get("description"):
+                if description_text:
                     metadata_html_parts.append(
-                        f"<p class=\"mb-1\"><span class=\"font-semibold\">Description:</span> {test['description']}</p>"
+                        f"<p class=\"mb-1\"><span class=\"font-semibold\">Description:</span> {description_text}</p>"
                     )
                 if test.get("requirements"):
-                    srs_val = str(test.get('srs_id', '')).strip().lower()
+                    srs_val = srs_value.lower()
                     filtered_requirements = [r for r in test["requirements"] if r and str(r).strip().lower() != srs_val]
                     if filtered_requirements:
                         req_badges = "".join(
@@ -1289,7 +1305,7 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                     <span class="text-xs text-gray-500 font-mono">{format_duration(test['duration'])}</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-2">
-                    {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test["srs_id"]}</code></div>' if test.get('srs_id') else ''}
+                    {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{srs_value}</code></div>' if srs_value else ''}
                     <div class="text-gray-700">
                         <span class="font-semibold text-gray-600">Test Function:</span> {test['name']}
                     </div>
@@ -1334,6 +1350,11 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                 status_icon = '⊘'
                 status_badge = 'text-yellow-700 bg-yellow-100'
 
+            test_description = str(test.get("description") or "").strip()
+            test_srs = str(test.get("srs_id") or "").strip()
+            if test_srs.upper() in ('SRS_ID', 'SRS-ID', 'SRSID'):
+                test_srs = ''
+
             category_test_entries_html += f"""
                 <div class=\"test-entry py-4 border-l-4 {border_color} pl-4 my-2 {status_color}\" data-status=\"{test_status}\" data-name=\"{test['name'].lower()}\">
                     <div class=\"flex justify-between items-start mb-2 mr-2\">
@@ -1344,11 +1365,11 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                         <span class=\"text-xs text-gray-500 font-mono\">{format_duration(test['duration'])}</span>
                     </div>
                     <div class=\"grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm mb-2\">
-                        {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test.get("srs_id", "")}</code></div>' if test.get("srs_id") else ''}
+                        {f'<div class="text-gray-700"><span class="font-semibold text-gray-600">SRS ID:</span> <code class="bg-gray-100 px-2 py-1 rounded">{test_srs}</code></div>' if test_srs else ''}
                         <div class=\"text-gray-700\"><span class=\"font-semibold text-gray-600\">Test Function:</span> {test['name']}</div>
                         <div><span class=\"inline-block px-3 py-1 rounded-full text-xs font-semibold {status_badge}\">{test_status.upper()}</span></div>
                     </div>
-                    {f'<div class="text-sm text-slate-700 mt-2">{test["description"]}</div>' if test.get("description") else ''}
+                    {f'<div class="text-sm text-slate-700 mt-2">{test_description}</div>' if test_description else ''}
                 </div>
             """
 
@@ -1479,6 +1500,13 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                     l_error_html = f"""
                             <div class=\"mt-3 p-3 bg-slate-900 text-slate-100 rounded-lg text-xs font-mono whitespace-pre-wrap break-words overflow-x-auto\">{_html_escape(e['error'])}</div>"""
 
+                cat_srs = str(e.get('srs_id') or '').strip()
+                if cat_srs.upper() in ('SRS_ID', 'SRS-ID', 'SRSID'):
+                    cat_srs = ''
+                cat_srs_html = ""
+                if cat_srs:
+                    cat_srs_html = f'<div class="mt-2 text-xs text-slate-600"><span class="font-semibold text-slate-500">SRS ID:</span> <code class="bg-gray-100 px-2 py-0.5 rounded">{_html_escape(cat_srs)}</code></div>'
+
                 cat_log_rows += f"""
                         <div class=\"border-l-4 {l_accent} bg-white rounded-r-xl shadow-sm border border-gray-200 p-4\">
                             <div class=\"flex flex-wrap items-start justify-between gap-3\">
@@ -1493,7 +1521,7 @@ def generate_html_report(metrics: Dict[str, Any], categories: Dict[str, List[Dic
                                     <span class=\"text-xs text-slate-400 font-mono\">{format_duration(e['duration'])}</span>
                                 </div>
                             </div>
-                            {f'<div class=\\"mt-2 text-xs text-slate-600\\"><span class=\\"font-semibold text-slate-500\\">SRS ID:</span> <code class=\\"bg-gray-100 px-2 py-0.5 rounded\\">{_html_escape(e["srs_id"])}</code></div>' if e.get('srs_id') else ''}
+                            {cat_srs_html}
                             {l_error_html}
                         </div>"""
 
