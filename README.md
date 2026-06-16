@@ -49,15 +49,6 @@ xchtml generate TestReport.xcresult -o ./my-reports
 xchtml --version
 ```
 
-### Legacy mode flags
-
-For backward compatibility with the original script:
-
-```bash
-xchtml generate --mode auto
-xchtml generate --mode manual --xcresult TestReport.xcresult
-```
-
 ## Output
 
 After a successful run, generated files are written under the output directory (default: `reports/`):

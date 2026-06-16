@@ -55,18 +55,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to .xcresult bundle (omit to auto-detect from DerivedData)",
     )
     gen_parser.add_argument(
-        "--xcresult",
-        dest="xcresult_named",
-        default=None,
-        help="Path to .xcresult bundle (alternative named flag)",
-    )
-    gen_parser.add_argument(
-        "--mode",
-        choices=["auto", "manual"],
-        default=None,
-        help="(Legacy) auto: pick latest from DerivedData, manual: use --xcresult",
-    )
-    gen_parser.add_argument(
         "-o",
         "--output",
         default="reports",
@@ -80,24 +68,11 @@ def _cmd_generate(args: argparse.Namespace) -> None:
     """Handles the 'generate' subcommand."""
 
     # Resolve the xcresult bundle path.
-    # Priority: positional arg > --xcresult named flag > --mode logic > auto-detect
-    xcresult_input = args.xcresult or args.xcresult_named
-
-    if args.mode == "manual":
-        # Legacy --mode manual path
-        if not xcresult_input:
-            print("Error: manual mode requires an xcresult path.")
-            print("Example: xchtml generate --mode manual --xcresult TestReport.xcresult")
-            sys.exit(1)
-        bundle_path = resolve_manual_xcresult(xcresult_input)
+    if args.xcresult:
+        # Direct path provided
+        bundle_path = resolve_manual_xcresult(args.xcresult)
         if not bundle_path:
-            print(f"Error: Could not resolve xcresult bundle from input: {xcresult_input}")
-            sys.exit(1)
-    elif xcresult_input:
-        # Direct path provided (new positional or named flag)
-        bundle_path = resolve_manual_xcresult(xcresult_input)
-        if not bundle_path:
-            print(f"Error: Could not resolve xcresult bundle from input: {xcresult_input}")
+            print(f"Error: Could not resolve xcresult bundle from input: {args.xcresult}")
             sys.exit(1)
     else:
         # Auto-detect from DerivedData
@@ -107,7 +82,7 @@ def _cmd_generate(args: argparse.Namespace) -> None:
             print("Tip: provide the path directly: xchtml generate <path>.xcresult")
             sys.exit(1)
 
-    mode_label = "manual" if xcresult_input else "auto"
+    mode_label = "manual" if args.xcresult else "auto"
     print(f"Loading test results from xcresult bundle ({mode_label} mode): {bundle_path}")
 
     xcdata = load_xcresult_test_results(bundle_path)
